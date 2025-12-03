@@ -1,1 +1,1 @@
-# szlb-backend
+# SZLB-backend

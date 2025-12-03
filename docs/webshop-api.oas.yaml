@@ -1,0 +1,2083 @@
+openapi: 3.0.3
+info:
+  title: Webshop API
+  version: 1.0.0
+
+tags:
+  - name: Auth
+    description: Authentication and user registration
+  - name: Products
+    description: Product management and retrieval
+  - name: Categories
+    description: Category management
+  - name: Orders
+    description: Order management
+  - name: Reviews
+    description: Product reviews
+  - name: Wishlists
+    description: User wishlists
+  - name: Shipping
+    description: Shipping methods
+  - name: Promotions
+    description: Promotions and codes
+  - name: Support
+    description: Support requests
+  - name: Users
+    description: User profile and loyalty
+  - name: Cart
+    description: User shopping cart
+  - name: Admin
+    description: Admin operations
+
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      description: Public endpoint to create a new user account.
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input
+
+  /auth/login:
+    post:
+      summary: User login
+      description: Public endpoint to authenticate a user and receive a JWT token.
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+
+  /products:
+    post:
+      summary: Create a new product
+      description: Admin-only endpoint to create a new product.
+      tags: [Products, Admin]
+      security:
+        - bearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductCreateRequest'
+      responses:
+        '201':
+          description: Product created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+    get:
+      summary: List products
+      description: Retrieve a paginated list of products. Use query parameters to filter or select fields.
+      tags:
+        - Products
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination (default is 1)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: Number of products per page (default is 20)
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+          description: Field to sort by (e.g., price, name)
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+          description: Sort order (asc or desc)
+        - name: fields
+          in: query
+          description: Comma-separated list of fields to include in the response (e.g., id,name,price)
+          required: false
+          schema:
+            type: string
+        - name: highlighted
+          in: query
+          description: If true, only return highlighted products (for homepage)
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: A paginated list of products
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+                  total:
+                    type: integer
+                  products:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Product'
+
+  /products/{sku}:
+    get:
+      summary: Get product details
+      description: Retrieve details for a specific product by SKU.
+      tags:
+        - Products
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          description: The unique SKU of the product
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+    patch:
+      summary: Partially update a product
+      description: Admin-only endpoint to update product fields, including moving to another category.
+      tags: [Products, Admin]
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          description: The unique SKU of the product
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductUpdateRequest'
+      responses:
+        '200':
+          description: Product updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+        '404':
+          description: Product not found
+    put:
+      summary: Update product details
+      description: Secured endpoint to update product details by SKU. Requires admin authentication.
+      tags: [Products, Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          description: The unique SKU of the product
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+      responses:
+        '200':
+          description: Product updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+        '404':
+          description: Product not found
+    delete:
+      summary: Delete a product
+      description: Secured endpoint to delete a product by SKU. By default, performs a soft delete (sets deleted_at). Use ?hard=true for hard delete.
+      tags: [Products, Admin]
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          description: The unique SKU of the product
+          schema:
+            type: string
+        - name: hard
+          in: query
+          required: false
+          description: If true, perform a hard delete (permanent removal)
+          schema:
+            type: boolean
+      responses:
+        '204':
+          description: Product deleted successfully (no content)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+        '404':
+          description: Product not found
+
+  /products/{sku}/restore:
+    post:
+      summary: Restore a soft-deleted product
+      description: Admin-only endpoint to restore a soft-deleted product by SKU.
+      tags: [Products, Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          description: The unique SKU of the product
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Product restored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+        '404':
+          description: Product not found or not deleted
+
+  /products/{sku}/reviews:
+    post:
+      summary: Leave a review for a product
+      description: Authenticated users can leave a review (score and comment) for a product they have purchased.
+      tags:
+        - Reviews
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          description: The unique SKU of the product to review
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - score
+              properties:
+                score:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: Rating score (1-5)
+                comment:
+                  type: string
+                  description: Optional review comment
+      responses:
+        '201':
+          description: Review created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductReview'
+        '400':
+          description: Invalid input or user has not purchased the product
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (user not allowed to review this product)
+    get:
+      summary: List reviews for a product
+      description: Retrieve a paginated list of reviews for a specific product.
+      tags:
+        - Reviews
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          description: The unique SKU of the product
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: Page number for pagination (default is 1)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: Number of reviews per page (default is 20)
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: A paginated list of product reviews
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+                  total:
+                    type: integer
+                  reviews:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ProductReview'
+        '404':
+          description: Product not found
+
+  /products/{sku}/reviews/{review_id}:
+    delete:
+      summary: Delete a product review
+      description: Delete a review (admin or review owner).
+      tags: [Reviews, Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: review_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Review deleted
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not owner or admin)
+        '404':
+          description: Review not found
+    patch:
+      summary: Update a product review
+      description: Update a review (review owner only or admin).
+      tags: [Reviews]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: review_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                score:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                comment:
+                  type: string
+      responses:
+        '200':
+          description: Review updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductReview'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not owner)
+        '404':
+          description: Review not found
+
+  /categories:
+    get:
+      summary: List categories
+      description: Retrieve a list of all product categories.
+      tags:
+        - Categories
+      responses:
+        '200':
+          description: A list of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+    post:
+      summary: Create a new category
+      description: Admin-only endpoint to create a new category.
+      tags: [Categories, Admin]
+      security:
+        - bearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryCreateRequest'
+      responses:
+        '201':
+          description: Category created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+
+  /categories/{id}:
+    put:
+      summary: Update a category
+      description: Admin-only endpoint to update a category.
+      tags: [Categories, Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the category
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpdateRequest'
+      responses:
+        '200':
+          description: Category updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+        '404':
+          description: Category not found
+    delete:
+      summary: Delete a category
+      description: Admin-only endpoint to delete a category.
+      tags: [Categories, Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the category
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Category deleted successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+        '404':
+          description: Category not found
+
+  /categories/{id}/restore:
+    post:
+      summary: Restore a soft-deleted category
+      description: Admin-only endpoint to restore a soft-deleted category.
+      tags: [Categories, Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the category
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Category restored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+        '404':
+          description: Category not found or not deleted
+
+  /users:
+    get:
+      tags: [Users, Admin]
+      summary: List all users
+      description: Retrieve a paginated list of all users. Admin access required.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination (default is 1)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: Number of users per page (default is 20)
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: email
+          in: query
+          description: Filter users by email (partial match)
+          required: false
+          schema:
+            type: string
+        - name: is_verified
+          in: query
+          description: Filter users by verification status
+          required: false
+          schema:
+            type: boolean
+        - name: from
+          in: query
+          description: Filter users created after this date (YYYY-MM-DD)
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          description: Filter users created before this date (YYYY-MM-DD)
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: A paginated list of users
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+                  total:
+                    type: integer
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (admin access required)
+
+  /users/{id}:
+    get:
+      tags: [Users, Admin]
+      summary: Get user details
+      description: Retrieve details of a specific user by user ID. Admin access required.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the user
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (admin access required)
+        '404':
+          description: User not found
+    put:
+      tags: [Users, Admin]
+      summary: Update user details
+      description: Update details of a specific user by user ID. Admin access required.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the user
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (admin access required)
+        '404':
+          description: User not found
+    delete:
+      tags: [Users, Admin]
+      summary: Remove (soft delete) a user
+      description: Soft delete a user by setting deleted_at. Admin access required.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the user
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: User soft deleted successfully (no content)
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (admin access required)
+        '404':
+          description: User not found
+
+  /users/{id}/restore:
+    post:
+      tags: [Users, Admin]
+      summary: Restore a soft-deleted user
+      description: Admin-only endpoint to restore a soft-deleted user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the user
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: User restored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+        '404':
+          description: User not found or not deleted
+
+  /users/me:
+    get:
+      summary: Get current user profile
+      description: Retrieve the profile of the authenticated user.
+      tags:
+        - Users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+    put:
+      summary: Update current user profile
+      description: Update the profile of the authenticated user.
+      tags:
+        - Users
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: User profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+
+  /users/me/loyalty:
+    get:
+      summary: Get current user's loyalty points and history
+      description: Retrieve the current user's loyalty points and transaction history.
+      tags:
+        - Users
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Loyalty points and history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  points:
+                    type: integer
+                  transactions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LoyaltyTransaction'
+        '401':
+          description: Unauthorized
+
+  /users/me/orders:
+    get:
+      summary: List orders for current user
+      description: Retrieve a paginated list of orders for the authenticated user.
+      tags:
+        - Orders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination (default is 1)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: Number of orders per page (default is 20)
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: A paginated list of orders for the user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+                  total:
+                    type: integer
+                  orders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+        '401':
+          description: Unauthorized
+
+  /users/me/support-requests:
+    get:
+      tags: [Support]
+      summary: List support requests for current user
+      description: Retrieve a paginated list of support requests submitted by the authenticated user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination (default is 1)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: Number of support requests per page (default is 20)
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: A paginated list of support requests for the user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+                  total:
+                    type: integer
+                  support_requests:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SupportRequest'
+        '401':
+          description: Unauthorized
+
+  /orders:
+    post:
+      summary: Place a new order
+      description: Create a new order as a guest or registered user. Public endpoint; authentication optional.
+      tags:
+        - Orders
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid order data
+        '401':
+          description: Unauthorized (if authentication required for registered user features)
+      security: [] # Allows both guests and users to place an order
+    get:
+      summary: List all orders
+      description: Retrieve a paginated list of all orders. Admin access required.
+      tags: [Orders, Admin]
+      security:
+        - bearerAuth: [ ]
+      parameters:
+        - name: page
+          in: query
+          description: Page number for pagination (default is 1)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: pageSize
+          in: query
+          description: Number of orders per page (default is 20)
+          required: false
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+          description: Field to sort by (e.g., price, name)
+        - name: sortOrder
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+        - name: status
+          in: query
+          description: Filter orders by status (e.g., pending, paid, shipped)
+          required: false
+          schema:
+            type: string
+        - name: user_id
+          in: query
+          description: Filter orders by user ID
+          required: false
+          schema:
+            type: integer
+        - name: from
+          in: query
+          description: Filter orders created after this date (YYYY-MM-DD)
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          description: Filter orders created before this date (YYYY-MM-DD)
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: A paginated list of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                  pageSize:
+                    type: integer
+                  total:
+                    type: integer
+                  orders:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Order'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (admin access required)
+
+  /orders/{id}:
+    get:
+      summary: Get order details
+      description: Retrieve details of a specific order (admin or order owner).
+      tags:
+        - Orders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Order details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not owner or admin)
+        '404':
+          description: Order not found
+
+  /promotions:
+    get:
+      summary: List active promotions
+      description: Retrieve all active promotions.
+      tags: [Promotions, Admin]
+      security:
+        - bearerAuth: [ ]
+      responses:
+        '200':
+          description: List of promotions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Promotion'
+    post:
+      summary: Create promotion
+      description: Admin-only endpoint to create a promotion.
+      tags: [Promotions, Admin]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromotionCreateRequest'
+      responses:
+        '201':
+          description: Promotion created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Promotion'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+
+  /promotions/highlighted:
+    get:
+      tags: [Promotions]
+      summary: Get highlighted public promotion
+      description: Retrieve the currently highlighted, ongoing promotion(s) for display to users (e.g., in a popup modal).
+      responses:
+        '200':
+          description: Highlighted promotion(s)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Promotion'
+
+  /promotion-codes:
+    post:
+      summary: Create promotion code
+      description: Admin-only endpoint to create a promotion code.
+      tags: [Promotions, Admin]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromotionCodeCreateRequest'
+      responses:
+        '201':
+          description: Promotion code created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromotionCode'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+
+  /wishlists:
+    get:
+      summary: List wishlists for current user
+      description: Retrieve all wishlists for the authenticated user.
+      tags:
+        - Wishlists
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of wishlists
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Wishlist'
+        '401':
+          description: Unauthorized
+    post:
+      summary: Create wishlist
+      description: Create a new wishlist for the authenticated user.
+      tags:
+        - Wishlists
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Wishlist created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Wishlist'
+        '401':
+          description: Unauthorized
+
+  /wishlists/{id}/items:
+    post:
+      summary: Add product to wishlist
+      description: Add a product to a wishlist.
+      tags:
+        - Wishlists
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id]
+              properties:
+                product_id:
+                  type: integer
+      responses:
+        '201':
+          description: Product added to wishlist
+        '401':
+          description: Unauthorized
+        '404':
+          description: Wishlist or product not found
+
+  /wishlists/{id}/items/{product_id}:
+    delete:
+      summary: Remove product from wishlist
+      description: Remove a product from a wishlist.
+      tags:
+        - Wishlists
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: product_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Product removed from wishlist
+        '401':
+          description: Unauthorized
+        '404':
+          description: Wishlist or product not found
+
+  /shipping-methods:
+    get:
+      summary: List available shipping methods
+      description: Retrieve all active shipping methods.
+      tags:
+        - Shipping
+      responses:
+        '200':
+          description: List of shipping methods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShippingMethod'
+    post:
+      summary: Create a new shipping method
+      description: Admin-only endpoint to create a new shipping method.
+      tags: [Shipping, Admin]
+      security:
+        - bearerAuth: [ ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShippingMethodCreateRequest'
+      responses:
+        '201':
+          description: Shipping method created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingMethod'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+
+  /shipping-methods/{id}:
+    put:
+      summary: Update a shipping method
+      description: Admin-only endpoint to update a shipping method.
+      tags: [Shipping, Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The unique ID of the shipping method
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShippingMethodUpdateRequest'
+      responses:
+        '200':
+          description: Shipping method updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingMethod'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+        '404':
+          description: Shipping method not found
+
+  /support-requests:
+    get:
+      summary: List all support requests
+      description: Admin-only endpoint to list all support requests.
+      tags: [Support, Admin]
+      security:
+        - bearerAuth: [ ]
+      responses:
+        '200':
+          description: List of support requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SupportRequest'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+    post:
+      summary: Submit a support request
+      description: Submit a support request as a guest or authenticated user, with optional file attachments.
+      tags:
+        - Support
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - subject
+                - message
+              properties:
+                subject:
+                  type: string
+                  description: Subject of the support request
+                message:
+                  type: string
+                  description: Message content of the support request
+                guest_email:
+                  type: string
+                  format: email
+                  description: Guest email (required if not authenticated)
+                guest_name:
+                  type: string
+                  description: Guest name (optional)
+                attachments:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                  description: Optional file attachments (one or more files)
+      responses:
+        '201':
+          description: Support request submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportRequest'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized (if authentication required for some features)
+      security: [ ]  # Public endpoint; remove or set to bearerAuth if you want to require authentication
+
+  /support-requests/{id}:
+    get:
+      summary: Get support request details
+      description: Admin-only endpoint to get details of a support request.
+      tags: [Support, Admin]
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Support request details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportRequest'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden (not an admin)
+        '404':
+          description: Support request not found
+  /cart:
+    get:
+      tags: [Cart]
+      summary: Get current user's cart
+      description: Retrieve the current authenticated user's cart and its items.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The current user's cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          description: Unauthorized
+    post:
+      tags: [Cart]
+      summary: Create or replace current user's cart
+      description: Create a new cart or replace the current cart for the authenticated user.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartCreateRequest'
+      responses:
+        '201':
+          description: Cart created or replaced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '401':
+          description: Unauthorized
+    delete:
+      tags: [Cart]
+      summary: Clear current user's cart
+      description: Remove all items from the current user's cart.
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Cart cleared
+        '401':
+          description: Unauthorized
+
+  /cart/items:
+    post:
+      tags: [Cart]
+      summary: Add item to cart
+      description: Add a product to the current user's cart.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sku, quantity]
+              properties:
+                sku:
+                  type: string
+                  description: Product SKU
+                quantity:
+                  type: integer
+                  minimum: 1
+      responses:
+        '201':
+          description: Item added to cart
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+    put:
+      tags: [Cart]
+      summary: Update item quantity in cart
+      description: Update the quantity of a product in the current user's cart.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sku, quantity]
+              properties:
+                sku:
+                  type: string
+                  description: Product SKU
+                quantity:
+                  type: integer
+                  minimum: 1
+      responses:
+        '200':
+          description: Cart item updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cart'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+
+  /cart/items/{sku}:
+    delete:
+      tags: [Cart]
+      summary: Remove item from cart
+      description: Remove a product from the current user's cart.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sku
+          in: path
+          required: true
+          description: The SKU of the product to remove
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Item removed from cart
+        '401':
+          description: Unauthorized
+        '404':
+          description: Item not found in cart
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Product:
+      type: object
+      properties:
+        sku:
+          type: string
+          description: Stock Keeping Unit, unique product code
+        id:
+          type: integer
+          description: Internal product ID
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+        stock:
+          type: integer
+        popularity_score:
+          type: number
+          format: float
+        is_highlighted:
+          type: boolean
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        deleted_at:
+          type: string
+          format: date-time
+    ProductReview:
+      type: object
+      properties:
+        id:
+          type: integer
+        product_sku:
+          type: string
+        user_id:
+          type: integer
+        score:
+          type: integer
+        comment:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+        status:
+          type: string
+        total_price:
+          type: number
+          format: float
+        created_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              sku:
+                type: string
+              name:
+                type: string
+              quantity:
+                type: integer
+              price_at_purchase:
+                type: number
+                format: float
+        shipping_method:
+          type: object
+          properties:
+            id:
+              type: integer
+            name:
+              type: string
+            price:
+              type: number
+              format: float
+        shipping_address:
+          type: object
+        billing_address:
+          type: object
+        promotion_code:
+          type: string
+        user_id:
+          type: integer
+        guest_email:
+          type: string
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+    OrderRequest:
+      type: object
+      required:
+        - items
+        - shipping_method_id
+        - shipping_address
+      properties:
+        items:
+          type: array
+          description: List of products to order
+          items:
+            type: object
+            required: [ sku, quantity ]
+            properties:
+              sku:
+                type: string
+                description: Product SKU
+              quantity:
+                type: integer
+                minimum: 1
+        shipping_method_id:
+          type: integer
+          description: Selected shipping method
+        shipping_address:
+          type: object
+          description: Shipping address details
+          properties:
+            first_name:
+              type: string
+            last_name:
+              type: string
+            country:
+              type: string
+            city:
+              type: string
+            postal_code:
+              type: string
+            street:
+              type: string
+            house_number:
+              type: string
+            phone_number:
+              type: string
+        billing_address:
+          type: object
+          description: Billing address details (optional, if different from shipping)
+          properties:
+            first_name:
+              type: string
+            last_name:
+              type: string
+            country:
+              type: string
+            city:
+              type: string
+            postal_code:
+              type: string
+            street:
+              type: string
+            house_number:
+              type: string
+            phone_number:
+              type: string
+        promotion_code:
+          type: string
+          description: Promotion code to apply (optional)
+        guest_email:
+          type: string
+          format: email
+          description: Guest email (required if not authenticated)
+    UserUpdateRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+    ProductCreateRequest:
+      type: object
+      required: [ sku, name, price, stock ]
+      properties:
+        sku:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+        stock:
+          type: integer
+        is_highlighted:
+          type: boolean
+        is_active:
+          type: boolean
+        category_ids:
+          type: array
+          items:
+            type: integer
+          description: List of category IDs to assign the product to
+    ProductUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+        stock:
+          type: integer
+        is_highlighted:
+          type: boolean
+        is_active:
+          type: boolean
+        category_ids:
+          type: array
+          items:
+            type: integer
+          description: List of category IDs to assign the product to (move product between categories)
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        parent_id:
+          type: integer
+    CategoryCreateRequest:
+      type: object
+      required: [ name ]
+      properties:
+        name:
+          type: string
+        parent_id:
+          type: integer
+    CategoryUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        parent_id:
+          type: integer
+    SupportRequest:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        guest_email:
+          type: string
+        guest_name:
+          type: string
+        subject:
+          type: string
+        message:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              file_url:
+                type: string
+                description: URL or path to the uploaded file
+              filename:
+                type: string
+                description: Original file name
+    RegisterRequest:
+      type: object
+      required:
+        - first_name
+        - last_name
+        - email
+        - password
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    Wishlist:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WishlistItem'
+    WishlistItem:
+      type: object
+      properties:
+        product_id:
+          type: integer
+        added_at:
+          type: string
+          format: date-time
+    ShippingMethod:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        price:
+          type: number
+          format: float
+        estimated_delivery_days:
+          type: integer
+    Promotion:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        discount_type:
+          type: string
+        discount_value:
+          type: number
+          format: float
+        is_active:
+          type: boolean
+    PromotionCreateRequest:
+      type: object
+      required: [name, discount_type, discount_value]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        discount_type:
+          type: string
+        discount_value:
+          type: number
+          format: float
+    PromotionCode:
+      type: object
+      properties:
+        id:
+          type: integer
+        code:
+          type: string
+        promotion_id:
+          type: integer
+        usage_limit:
+          type: integer
+        used_count:
+          type: integer
+    PromotionCodeCreateRequest:
+      type: object
+      required: [code, promotion_id]
+      properties:
+        code:
+          type: string
+        promotion_id:
+          type: integer
+        usage_limit:
+          type: integer
+    LoyaltyTransaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        points:
+          type: integer
+        type:
+          type: string
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    ShippingMethodCreateRequest:
+      type: object
+      required: [ name, price ]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+        estimated_delivery_days:
+          type: integer
+        is_active:
+          type: boolean
+    ShippingMethodUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+          format: float
+        estimated_delivery_days:
+          type: integer
+        is_active:
+          type: boolean
+    Cart:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CartItem'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CartItem:
+      type: object
+      properties:
+        sku:
+          type: string
+        name:
+          type: string
+        quantity:
+          type: integer
+        price:
+          type: number
+          format: float
+    CartCreateRequest:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [sku, quantity]
+            properties:
+              sku:
+                type: string
+              quantity:
+                type: integer
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT access token
+        user:
+          $ref: '#/components/schemas/User'
